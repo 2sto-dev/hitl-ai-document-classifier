@@ -1,5 +1,7 @@
 import uuid
+
 from django.db import models
+
 
 class Document(models.Model):
 
@@ -10,41 +12,36 @@ class Document(models.Model):
         ("rejected", "Rejected"),
     ]
 
+    DEPARTMENT_CHOICES = [
+        ("HR", "HR"),
+        ("Finance", "Finance"),
+        ("IT", "IT"),
+        ("Legal", "Legal"),
+        ("Operations", "Operations"),
+        ("Procurement", "Procurement"),
+    ]
+
     id = models.UUIDField(
         primary_key=True,
         default=uuid.uuid4,
         editable=False
     )
 
-    filename = models.CharField(max_length=255)
+    filename = models.CharField(
+        max_length=255
+    )
 
     uploaded_file = models.FileField(
         upload_to="documents/"
     )
 
-    extracted_text = models.TextField(blank=True)
-
-    predicted_class = models.CharField(
-        max_length=100,
+    extracted_text = models.TextField(
         blank=True
     )
 
-    confidence_score = models.FloatField(
-        default=0
-    )
-
-    final_class = models.CharField(
-        max_length=100,
+    summary = models.TextField(
         blank=True
     )
-
-    status = models.CharField(
-        max_length=20,
-        choices=STATUS_CHOICES,
-        default="pending"
-    )
-
-    summary = models.TextField(blank=True)
 
     keywords = models.JSONField(
         default=list,
@@ -56,8 +53,31 @@ class Document(models.Model):
         blank=True
     )
 
+    predicted_class = models.CharField(
+        max_length=50,
+        blank=True
+    )
+
+    confidence_score = models.FloatField(
+        default=0
+    )
+
+    final_class = models.CharField(
+        max_length=50,
+        choices=DEPARTMENT_CHOICES,
+        blank=True
+    )
+
+    human_corrected = models.BooleanField(
+        default=False
+    )
+
     human_review_required = models.BooleanField(
         default=False
+    )
+
+    review_notes = models.TextField(
+        blank=True
     )
 
     reviewed_by = models.CharField(
@@ -68,6 +88,12 @@ class Document(models.Model):
     reviewed_at = models.DateTimeField(
         null=True,
         blank=True
+    )
+
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default="pending"
     )
 
     uploaded_at = models.DateTimeField(

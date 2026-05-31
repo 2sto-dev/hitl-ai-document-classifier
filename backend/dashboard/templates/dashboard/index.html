@@ -1,0 +1,641 @@
+```html
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    {% load static %}
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>HITL AI Platform</title>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <link
+        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+        rel="stylesheet"
+    >
+
+    <style>
+
+        :root {
+
+            --bg-main: #071412;
+            --bg-card: #0d2623;
+            --bg-sidebar: #081816;
+
+            --accent: #49a89a;
+            --accent-light: #c6efeb;
+
+            --text: #ffffff;
+            --text-muted: #9fb7b4;
+
+        }
+
+        body {
+
+            margin: 0;
+
+            background: var(--bg-main);
+
+            color: var(--text);
+
+            font-family: Inter, Arial, sans-serif;
+        }
+
+        .sidebar {
+
+            position: fixed;
+
+            top: 0;
+            left: 0;
+
+            width: 260px;
+            height: 100vh;
+
+            background: var(--bg-sidebar);
+
+            border-right: 1px solid rgba(
+                255,
+                255,
+                255,
+                0.05
+            );
+
+            padding: 24px;
+        }
+
+        .logo {
+
+            font-size: 24px;
+            font-weight: 700;
+
+            margin-bottom: 40px;
+        }
+
+        .logo span {
+
+            color: var(--accent);
+        }
+
+        .nav-link {
+
+            display: block;
+
+            padding: 12px 14px;
+
+            margin-bottom: 8px;
+
+            border-radius: 12px;
+
+            color: white;
+
+            text-decoration: none;
+        }
+
+        .nav-link:hover {
+
+            background: rgba(
+                73,
+                168,
+                154,
+                0.2
+            );
+
+            color: white;
+        }
+
+        .content {
+
+            margin-left: 260px;
+
+            padding: 30px;
+        }
+
+        .hero {
+
+            background: linear-gradient(
+                135deg,
+                #0f3531,
+                #124440
+            );
+
+            border-radius: 24px;
+
+            padding: 30px;
+
+            margin-bottom: 25px;
+        }
+
+        .hero h1 {
+
+            font-size: 34px;
+
+            margin-bottom: 10px;
+        }
+
+        .hero p {
+
+            color: var(--text-muted);
+
+            margin: 0;
+        }
+
+        .search-box {
+
+            margin-top: 20px;
+        }
+
+        .search-box input {
+
+            width: 100%;
+
+            border: none;
+
+            border-radius: 14px;
+
+            padding: 15px;
+
+            background: rgba(
+                255,
+                255,
+                255,
+                0.08
+            );
+
+            color: white;
+        }
+
+        .stat-card {
+
+            background: var(--bg-card);
+
+            border-radius: 20px;
+
+            padding: 20px;
+
+            height: 100%;
+        }
+
+        .stat-label {
+
+            color: var(--text-muted);
+
+            font-size: 14px;
+        }
+
+        .stat-value {
+
+            font-size: 32px;
+
+            font-weight: 700;
+
+            margin-top: 10px;
+        }
+
+        .panel {
+
+            background: var(--bg-card);
+
+            border-radius: 20px;
+
+            padding: 20px;
+
+            margin-top: 25px;
+        }
+
+        .panel h3 {
+
+            margin-bottom: 20px;
+        }
+
+        .recent-item {
+
+            padding: 12px;
+
+            border-radius: 10px;
+
+            margin-bottom: 10px;
+
+            background: rgba(
+                255,
+                255,
+                255,
+                0.04
+            );
+        }
+
+        table {
+
+            width: 100%;
+        }
+
+        th,
+        td {
+
+            text-align: center;
+
+            padding: 10px;
+        }
+
+        .matrix-correct {
+
+            background: rgba(
+                50,
+                210,
+                150,
+                0.25
+            );
+        }
+
+        .matrix-error {
+
+            background: rgba(
+                255,
+                95,
+                95,
+                0.25
+            );
+        }
+
+    </style>
+
+</head>
+
+<body>
+
+<div class="sidebar">
+
+    <div class="logo">
+        HITL <span>AI</span>
+    </div>
+
+    <a class="nav-link" href="#">
+        Dashboard
+    </a>
+
+    <a class="nav-link" href="#">
+        Documents
+    </a>
+
+    <a class="nav-link" href="#">
+        Review Queue
+    </a>
+
+    <a class="nav-link" href="#">
+        Analytics
+    </a>
+
+    <a class="nav-link" href="#">
+        Model Performance
+    </a>
+
+</div>
+
+<div class="content">
+
+    <div class="hero">
+
+        <h1>
+            Good Morning, Researcher 👋
+        </h1>
+
+        <p>
+            Human-in-the-Loop Document
+            Classification Platform
+        </p>
+
+        <div class="search-box">
+
+            <input
+                type="text"
+                placeholder="Ask AI anything..."
+            >
+
+        </div>
+
+    </div>
+
+    <div class="row g-4">
+
+        <div class="col-md-3">
+
+            <div class="stat-card">
+
+                <div class="stat-label">
+                    Total Documents
+                </div>
+
+                <div
+                    class="stat-value"
+                    id="totalDocuments"
+                >
+                    0
+                </div>
+
+            </div>
+
+        </div>
+
+        <div class="col-md-3">
+
+            <div class="stat-card">
+
+                <div class="stat-label">
+                    Approved
+                </div>
+
+                <div
+                    class="stat-value"
+                    id="approvedDocs"
+                >
+                    0
+                </div>
+
+            </div>
+
+        </div>
+
+        <div class="col-md-3">
+
+            <div class="stat-card">
+
+                <div class="stat-label">
+                    Confidence
+                </div>
+
+                <div
+                    class="stat-value"
+                    id="avgConfidence"
+                >
+                    0%
+                </div>
+
+            </div>
+
+        </div>
+
+        <div class="col-md-3">
+
+            <div class="stat-card">
+
+                <div class="stat-label">
+                    Intervention
+                </div>
+
+                <div
+                    class="stat-value"
+                    id="humanRate"
+                >
+                    0%
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <div class="row mt-4">
+
+        <div class="col-lg-6">
+
+            <div class="panel">
+
+                <h3>Status Distribution</h3>
+
+                <canvas id="statusChart"></canvas>
+
+            </div>
+
+        </div>
+
+        <div class="col-lg-6">
+
+            <div class="panel">
+
+                <h3>Departments</h3>
+
+                <canvas id="departmentChart"></canvas>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <div class="row mt-4">
+
+        <div class="col-lg-7">
+
+            <div class="panel">
+
+                <h3>Confusion Matrix</h3>
+
+                <table
+                    id="confusionTable"
+                    class="table table-dark"
+                >
+                </table>
+
+            </div>
+
+        </div>
+
+        <div class="col-lg-5">
+
+            <div class="panel">
+
+                <h3>Recent Activity</h3>
+
+                <div class="recent-item">
+                    AI Classification Active
+                </div>
+
+                <div class="recent-item">
+                    Human Review Queue Ready
+                </div>
+
+                <div class="recent-item">
+                    Analytics Updated
+                </div>
+
+                <div class="recent-item">
+                    Dashboard Connected
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+<script>
+
+let statusChart = null;
+let departmentChart = null;
+
+function loadDashboard() {
+
+    fetch("/api/stats/")
+    .then(r => r.json())
+    .then(data => {
+
+        document.getElementById(
+            "totalDocuments"
+        ).innerText =
+            data.total_documents;
+
+        document.getElementById(
+            "approvedDocs"
+        ).innerText =
+            data.approved;
+
+        document.getElementById(
+            "avgConfidence"
+        ).innerText =
+            data.average_confidence + "%";
+
+        document.getElementById(
+            "humanRate"
+        ).innerText =
+            data.human_intervention_rate + "%";
+
+        if (statusChart)
+            statusChart.destroy();
+
+        statusChart = new Chart(
+            document.getElementById(
+                "statusChart"
+            ),
+            {
+                type: "doughnut",
+                data: {
+                    labels: [
+                        "Approved",
+                        "Review",
+                        "Rejected",
+                        "Pending"
+                    ],
+                    datasets: [{
+                        data: [
+                            data.approved,
+                            data.review_required,
+                            data.rejected,
+                            data.pending
+                        ]
+                    }]
+                }
+            }
+        );
+
+    });
+
+    fetch("/api/stats/departments/")
+    .then(r => r.json())
+    .then(data => {
+
+        if (departmentChart)
+            departmentChart.destroy();
+
+        departmentChart = new Chart(
+            document.getElementById(
+                "departmentChart"
+            ),
+            {
+                type: "bar",
+                data: {
+                    labels: Object.keys(data),
+                    datasets: [{
+                        data: Object.values(data)
+                    }]
+                }
+            }
+        );
+
+    });
+
+    fetch(
+        "/api/stats/confusion-matrix/"
+    )
+    .then(r => r.json())
+    .then(data => {
+
+        let html =
+            "<tr><th>Predicted \\ Actual</th>";
+
+        const departments =
+            Object.keys(data);
+
+        departments.forEach(dep => {
+
+            html += `<th>${dep}</th>`;
+
+        });
+
+        html += "</tr>";
+
+        departments.forEach(pred => {
+
+            html += `<tr><th>${pred}</th>`;
+
+            departments.forEach(act => {
+
+                const value =
+                    data[pred][act];
+
+                let cls = "";
+
+                if (
+                    pred === act
+                ) {
+                    cls =
+                    "matrix-correct";
+                }
+                else if (
+                    value > 0
+                ) {
+                    cls =
+                    "matrix-error";
+                }
+
+                html += `
+                    <td class="${cls}">
+                        ${value}
+                    </td>
+                `;
+
+            });
+
+            html += "</tr>";
+
+        });
+
+        document.getElementById(
+            "confusionTable"
+        ).innerHTML = html;
+
+    });
+
+}
+
+loadDashboard();
+
+setInterval(
+    loadDashboard,
+    5000
+);
+
+</script>
+
+</body>
+</html>
+```
