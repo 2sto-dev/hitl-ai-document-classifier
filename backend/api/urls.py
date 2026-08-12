@@ -6,7 +6,8 @@ from rest_framework_simplejwt.views import (
 )
 
 from .auth_views import (
-    RegisterView
+    RegisterView,
+    UserProfileView,
 )
 
 from .views import (
@@ -15,6 +16,7 @@ from .views import (
     ReviewQueueView,
     ReviewDocumentView,
     UploadDocumentView,
+    AnalyzeAiView,
 )
 
 from .stats_views import (
@@ -57,6 +59,12 @@ urlpatterns = [
         name="token_refresh"
     ),
 
+    path(
+        "auth/me/",
+        UserProfileView.as_view(),
+        name="user-profile"
+    ),
+
     # ==========================
     # Documents
     # ==========================
@@ -87,6 +95,15 @@ urlpatterns = [
         "upload/",
         UploadDocumentView.as_view(),
         name="document-upload"
+    ),
+
+    # ==========================
+    # AI Analyze
+    # ==========================
+    path(
+        "ai/analyze/",
+        AnalyzeAiView.as_view(),
+        name="ai-analyze"
     ),
 
     # ==========================

@@ -5,6 +5,11 @@ from django.db import models
 
 class Document(models.Model):
 
+    DECISION_ROUTE_CHOICES = [
+        ("auto_approved", "Auto-approved"),
+        ("human_review", "Human review required"),
+    ]
+
     STATUS_CHOICES = [
         ("pending", "Pending"),
         ("approved", "Approved"),
@@ -60,6 +65,29 @@ class Document(models.Model):
 
     confidence_score = models.FloatField(
         default=0
+    )
+
+    second_class = models.CharField(
+        max_length=50,
+        blank=True
+    )
+
+    second_confidence = models.FloatField(
+        default=0
+    )
+
+    confidence_margin = models.FloatField(
+        default=0
+    )
+
+    decision_route = models.CharField(
+        max_length=20,
+        choices=DECISION_ROUTE_CHOICES,
+        blank=True
+    )
+
+    decision_threshold = models.FloatField(
+        default=70.0
     )
 
     final_class = models.CharField(

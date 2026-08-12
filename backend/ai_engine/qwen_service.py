@@ -33,7 +33,7 @@ Example:
 
 Document:
 
-{text[:5000]}
+{text[:2500]}
 """
 
     response = requests.post(
@@ -41,7 +41,12 @@ Document:
         json={
             "model": "phi3:latest",
             "prompt": prompt,
-            "stream": False
+            "stream": False,
+            "keep_alive": -1,
+            "options": {
+                "temperature": 0,
+                "num_predict": 180
+            }
         },
         timeout=180
     )
