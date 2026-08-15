@@ -30,15 +30,16 @@ from .upload_serializer import (
 from .review_queue_serializer import (
     ReviewQueueSerializer
 )
+from django.views.decorators.csrf import csrf_exempt
+
+from ai_engine.qwen_service import analyze_document
 
 
 class DocumentListView(
     generics.ListAPIView
 ):
 
-    permission_classes = [
-        IsAuthenticated
-    ]
+    permission_classes = [IsAuthenticated]
 
     queryset = (
         Document.objects.all()
@@ -54,9 +55,7 @@ class DocumentDetailView(
     generics.RetrieveAPIView
 ):
 
-    permission_classes = [
-        IsAuthenticated
-    ]
+    permission_classes = [IsAuthenticated]
 
     queryset = (
         Document.objects.all()
@@ -73,9 +72,7 @@ class ReviewQueueView(
     generics.ListAPIView
 ):
 
-    permission_classes = [
-        IsAuthenticated
-    ]
+    permission_classes = [IsAuthenticated]
 
     serializer_class = (
         ReviewQueueSerializer
@@ -93,9 +90,7 @@ class ReviewDocumentView(
     APIView
 ):
 
-    permission_classes = [
-        IsAuthenticated
-    ]
+    permission_classes = [IsAuthenticated]
 
     def post(
         self,
@@ -115,19 +110,29 @@ class ReviewDocumentView(
             raise_exception=True
         )
 
-        selected_class = (
-            serializer.validated_data[
-                "final_class"
-            ]
+        action = serializer.validated_data[
+            "action"
+        ]
+
+        final_class = serializer.validated_data.get(
+            "final_class",
+            ""
         )
 
-        document.final_class = (
-            selected_class
-        )
+        if action == "approve":
+            selected_class = document.predicted_class
+            document.status = "approved"
+        elif action == "change":
+            selected_class = final_class
+            document.status = "approved"
+        else:
+            selected_class = ""
+            document.status = "rejected"
+
+        document.final_class = selected_class
 
         document.human_corrected = (
-            selected_class !=
-            document.predicted_class
+            selected_class != document.predicted_class
         )
 
         document.review_notes = (
@@ -139,6 +144,8 @@ class ReviewDocumentView(
 
         document.reviewed_by = (
             request.user.username
+            if hasattr(request, 'user') and request.user
+            else 'anonymous'
         )
 
         document.reviewed_at = (
@@ -146,8 +153,6 @@ class ReviewDocumentView(
         )
 
         document.human_review_required = False
-
-        document.status = "approved"
 
         document.save()
 
@@ -176,9 +181,7 @@ class UploadDocumentView(
     APIView
 ):
 
-    permission_classes = [
-        IsAuthenticated
-    ]
+    permission_classes = [IsAuthenticated]
 
     parser_classes = [
         MultiPartParser,
@@ -221,3 +224,21 @@ class UploadDocumentView(
             },
             status=status.HTTP_201_CREATED
         )
+
+
+class AnalyzeAiView(APIView):
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        # Accept a plain text prompt and optional context
+        text = request.data.get('text', '')
+
+        if not text:
+            return Response({'error': 'No text provided'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            result = analyze_document(text)
+            return Response(result, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

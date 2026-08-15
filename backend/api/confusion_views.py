@@ -21,7 +21,7 @@ class AccuracyStatisticsView(
     APIView
 ):
 
-    permission_classes = []
+    permission_classes = [IsAuthenticated]
 
     def get(
         self,
@@ -83,7 +83,7 @@ class ConfusionMatrixView(
     APIView
 ):
 
-    permission_classes = []
+    permission_classes = [IsAuthenticated]
 
     def get(
         self,
