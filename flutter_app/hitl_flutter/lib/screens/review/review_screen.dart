@@ -84,6 +84,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
         _pendingFileBytes = bytes;
         _selectedDocument = null;
         _selectedDocumentId = null;
+        _promptController.clear();
         _aiDepartment = '';
         _aiSummary = '';
         _aiKeywords = [];
@@ -91,7 +92,9 @@ class _ReviewScreenState extends State<ReviewScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${file.name} attached. Press Send to analyze.')),
+          SnackBar(
+            content: Text('${file.name} attached. Press Send to analyze.'),
+          ),
         );
       }
     } catch (e) {
@@ -173,6 +176,18 @@ ${document.extractedText}
           _pendingFileBytes = null;
           _queueFuture = ApiService.fetchReviewQueue();
         });
+
+        // Upload processing already asks Ollama for these values. Avoid a
+        // second long-running Ollama request unless the user asked a specific
+        // follow-up question.
+        if (promptText.isEmpty) {
+          setState(() {
+            _aiDepartment = detail.suggestedDepartment;
+            _aiSummary = detail.summary;
+            _aiKeywords = detail.keywords;
+          });
+          return;
+        }
       }
 
       final combined = _buildAiPrompt(document!, promptText);
@@ -318,14 +333,27 @@ ${document.extractedText}
           ),
         ),
         const SizedBox(height: 12),
-        ElevatedButton.icon(
-          onPressed: () => _openPdfDocument(pdfUrl),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.white,
-            foregroundColor: Colors.black,
-          ),
-          icon: const Icon(Icons.picture_as_pdf),
-          label: const Text('Open PDF'),
+        Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: [
+            ElevatedButton.icon(
+              onPressed: () => _openPdfDocument(pdfUrl),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.white,
+                foregroundColor: Colors.black,
+              ),
+              icon: const Icon(Icons.picture_as_pdf),
+              label: const Text('Open PDF'),
+            ),
+            OutlinedButton.icon(
+              onPressed: (_isUploading || _isAnalyzing)
+                  ? null
+                  : _attachDocument,
+              icon: const Icon(Icons.upload_file),
+              label: const Text('Upload another PDF'),
+            ),
+          ],
         ),
         const SizedBox(height: 24),
         _buildAnalysisSection(document, compact: compact),
@@ -490,71 +518,71 @@ ${document.extractedText}
     bool compact = false,
   }) {
     final content = Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'AI Analysis',
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 16),
+        _buildInfoRow('Predicted Department', document.predictedClass),
+        const SizedBox(height: 8),
+        _buildInfoRow(
+          'Confidence',
+          '${document.confidenceScore.toStringAsFixed(1)}%',
+        ),
+        const SizedBox(height: 8),
+        _buildInfoRow(
+          'Suggested Department',
+          document.suggestedDepartment.isNotEmpty
+              ? document.suggestedDepartment
+              : 'N/A',
+        ),
+        const SizedBox(height: 16),
+        Text(
+          'Keywords',
+          style: const TextStyle(
+            color: Colors.white70,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: document.keywords.map((keyword) {
+            return Chip(
+              label: Text(keyword),
+              backgroundColor: const Color(0xFF0F3B4F),
+              labelStyle: const TextStyle(color: Colors.white),
+            );
+          }).toList(),
+        ),
+        const SizedBox(height: 16),
+        Text(
+          'Summary',
+          style: const TextStyle(
+            color: Colors.white70,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 8),
+        if (compact)
           Text(
-            'AI Analysis',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 16),
-          _buildInfoRow('Predicted Department', document.predictedClass),
-          const SizedBox(height: 8),
-          _buildInfoRow(
-            'Confidence',
-            '${document.confidenceScore.toStringAsFixed(1)}%',
-          ),
-          const SizedBox(height: 8),
-          _buildInfoRow(
-            'Suggested Department',
-            document.suggestedDepartment.isNotEmpty
-                ? document.suggestedDepartment
-                : 'N/A',
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Keywords',
-            style: const TextStyle(
-              color: Colors.white70,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: document.keywords.map((keyword) {
-              return Chip(
-                label: Text(keyword),
-                backgroundColor: const Color(0xFF0F3B4F),
-                labelStyle: const TextStyle(color: Colors.white),
-              );
-            }).toList(),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Summary',
-            style: const TextStyle(
-              color: Colors.white70,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 8),
-          if (compact)
-            Text(
-              _aiSummary.isNotEmpty
-                  ? _aiSummary
-                  : (document.summary.isNotEmpty
-                        ? document.summary
-                        : document.extractedText),
-              style: const TextStyle(color: Colors.white60),
-            )
-          else
-            Expanded(
-              child: SingleChildScrollView(
-                child: Text(
+            _aiSummary.isNotEmpty
+                ? _aiSummary
+                : (document.summary.isNotEmpty
+                      ? document.summary
+                      : document.extractedText),
+            style: const TextStyle(color: Colors.white60),
+          )
+        else
+          Expanded(
+            child: SingleChildScrollView(
+              child: Text(
                 // If AI produced a summary from the prompt, show it first
                 _aiSummary.isNotEmpty
                     ? _aiSummary
@@ -562,22 +590,22 @@ ${document.extractedText}
                           ? document.summary
                           : document.extractedText),
                 style: const TextStyle(color: Colors.white60),
-                ),
               ),
             ),
+          ),
+        const SizedBox(height: 12),
+        if (_aiDepartment.isNotEmpty) ...[
+          _buildInfoRow('AI Predicted Department', _aiDepartment),
+          const SizedBox(height: 8),
+          _buildInfoRow('AI Keywords', _aiKeywords.join(', ')),
           const SizedBox(height: 12),
-          if (_aiDepartment.isNotEmpty) ...[
-            _buildInfoRow('AI Predicted Department', _aiDepartment),
-            const SizedBox(height: 8),
-            _buildInfoRow('AI Keywords', _aiKeywords.join(', ')),
-            const SizedBox(height: 12),
-          ],
-          const SizedBox(height: 16),
-          if (document.confidenceScore < document.decisionThreshold)
-            Wrap(
-              spacing: 12,
-              runSpacing: 10,
-              children: [
+        ],
+        const SizedBox(height: 16),
+        if (document.confidenceScore < document.decisionThreshold)
+          Wrap(
+            spacing: 12,
+            runSpacing: 10,
+            children: [
               ElevatedButton(
                 onPressed: _isSubmitting
                     ? null
@@ -635,39 +663,39 @@ ${document.extractedText}
                 ),
                 child: const Text('Reject'),
               ),
-              ],
-            )
-          else
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-              decoration: BoxDecoration(
-                color: AppColors.success.withAlpha(28),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: AppColors.success.withAlpha(140)),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(
-                    Icons.auto_awesome,
-                    color: AppColors.success,
-                    size: 20,
-                  ),
-                  const SizedBox(width: 8),
-                  Flexible(
-                    child: Text(
-                      'Auto-approved (${document.confidenceScore.toStringAsFixed(1)}% ≥ ${document.decisionThreshold.toStringAsFixed(0)}%) — no human action required',
-                      style: const TextStyle(
-                        color: AppColors.success,
-                        fontWeight: FontWeight.w600,
-                      ),
+            ],
+          )
+        else
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+            decoration: BoxDecoration(
+              color: AppColors.success.withAlpha(28),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: AppColors.success.withAlpha(140)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.auto_awesome,
+                  color: AppColors.success,
+                  size: 20,
+                ),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    'Auto-approved (${document.confidenceScore.toStringAsFixed(1)}% ≥ ${document.decisionThreshold.toStringAsFixed(0)}%) — no human action required',
+                    style: const TextStyle(
+                      color: AppColors.success,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-        ],
-      );
+          ),
+      ],
+    );
 
     return compact ? content : Expanded(child: content);
   }

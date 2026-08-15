@@ -5,6 +5,27 @@ from .classifier import (
     classify_document,
     needs_human_review
 )
+from .qwen_service import analyze_document
+
+
+def _local_metadata(text):
+    """Provide useful metadata when Ollama is temporarily unavailable."""
+    clean_text = " ".join(text.split())
+    sentences = re.split(r"(?<=[.!?])\s+", clean_text)
+    summary = " ".join(sentences[:3])[:700]
+
+    stop_words = {
+        "about", "after", "also", "and", "are", "been", "before",
+        "being", "between", "document", "for", "from", "have", "into",
+        "that", "the", "their", "this", "was", "were", "which", "with",
+    }
+    words = re.findall(r"[A-Za-z][A-Za-z-]{3,}", clean_text.lower())
+    keywords = [
+        word for word, _ in Counter(
+            word for word in words if word not in stop_words
+        ).most_common(8)
+    ]
+    return summary, keywords
 
 
 def process_document(document):
@@ -47,24 +68,35 @@ def process_document(document):
         0
     )
 
-    # Keep upload latency low. The interactive AI endpoint handles optional
-    # LLM questions; ingestion uses deterministic local metadata instead.
-    clean_text = " ".join(text.split())
-    sentences = re.split(r"(?<=[.!?])\s+", clean_text)
-    document.summary = " ".join(sentences[:3])[:700]
+    # Ollama generates the document metadata. Keep a deterministic fallback so
+    # an Ollama restart does not prevent the upload itself from being saved.
+    fallback_summary, fallback_keywords = _local_metadata(text)
+    try:
+        ai_analysis = analyze_document(text)
+    except Exception as error:
+        print(f"Ollama analysis error: {error}")
+        ai_analysis = {}
 
-    stop_words = {
-        "about", "after", "also", "and", "are", "been", "before",
-        "being", "between", "document", "for", "from", "have", "into",
-        "that", "the", "their", "this", "was", "were", "which", "with",
-    }
-    words = re.findall(r"[A-Za-z][A-Za-z-]{3,}", clean_text.lower())
-    document.keywords = [
-        word for word, _ in Counter(
-            word for word in words if word not in stop_words
-        ).most_common(8)
-    ]
-    document.suggested_department = document.predicted_class
+    ai_summary = ai_analysis.get("summary")
+    document.summary = (
+        ai_summary.strip()[:700]
+        if isinstance(ai_summary, str) and ai_summary.strip()
+        else fallback_summary
+    )
+
+    ai_keywords = ai_analysis.get("keywords")
+    document.keywords = (
+        [str(keyword).strip() for keyword in ai_keywords if str(keyword).strip()][:8]
+        if isinstance(ai_keywords, list) and ai_keywords
+        else fallback_keywords
+    )
+
+    ai_department = ai_analysis.get("department")
+    valid_departments = {"HR", "Finance", "Legal", "IT", "Procurement", "Operations"}
+    document.suggested_department = (
+        ai_department if ai_department in valid_departments
+        else document.predicted_class
+    )
 
     # HITL Decision
 

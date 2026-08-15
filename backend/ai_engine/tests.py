@@ -25,11 +25,17 @@ class DocumentProcessingTests(SimpleTestCase):
         self.assertFalse(needs_human_review(95))
 
     @patch("ai_engine.services.extract_text", return_value="employee salary contract")
+    @patch("ai_engine.services.analyze_document")
     @patch("ai_engine.services.classify_document")
-    def test_processing_persists_human_review_route(self, classify, _extract):
+    def test_processing_persists_human_review_route(self, classify, analyze, _extract):
         classify.return_value = {
             "predicted_class": "HR",
             "confidence": 69.99,
+        }
+        analyze.return_value = {
+            "summary": "Ollama summary",
+            "keywords": ["employee", "salary"],
+            "department": "HR",
         }
         document = Mock()
         document.uploaded_file.path = "report.pdf"
@@ -39,14 +45,18 @@ class DocumentProcessingTests(SimpleTestCase):
         self.assertEqual(document.decision_route, "human_review")
         self.assertEqual(document.decision_threshold, 70.0)
         self.assertTrue(document.human_review_required)
+        self.assertEqual(document.summary, "Ollama summary")
+        self.assertEqual(document.keywords, ["employee", "salary"])
 
     @patch("ai_engine.services.extract_text", return_value="employee salary contract")
+    @patch("ai_engine.services.analyze_document")
     @patch("ai_engine.services.classify_document")
-    def test_processing_persists_auto_approved_route(self, classify, _extract):
+    def test_processing_persists_auto_approved_route(self, classify, analyze, _extract):
         classify.return_value = {
             "predicted_class": "HR",
             "confidence": 70.0,
         }
+        analyze.side_effect = RuntimeError("Ollama unavailable")
         document = Mock()
         document.uploaded_file.path = "report.pdf"
 
@@ -55,3 +65,4 @@ class DocumentProcessingTests(SimpleTestCase):
         self.assertEqual(document.decision_route, "auto_approved")
         self.assertEqual(document.decision_threshold, 70.0)
         self.assertFalse(document.human_review_required)
+        self.assertTrue(document.summary)

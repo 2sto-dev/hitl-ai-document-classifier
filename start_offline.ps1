@@ -2,11 +2,24 @@ $ErrorActionPreference = 'Stop'
 
 $projectRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $backendRoot = Join-Path $projectRoot 'backend'
+$flutterRoot = Join-Path $projectRoot 'flutter_app\hitl_flutter'
 $pythonPath = Join-Path $backendRoot 'venv\Scripts\python.exe'
-$ngrokPath = Join-Path $env:LOCALAPPDATA 'Microsoft\WindowsApps\ngrok.exe'
-$demoDomain = 'https://sublabial-unpondered-tiffanie.ngrok-free.dev'
-$ollamaCommand = Get-Command ollama -ErrorAction SilentlyContinue
+$flutterCommand = Get-Command flutter -ErrorAction SilentlyContinue
 
+if (-not (Test-Path $pythonPath)) {
+    $pythonPath = Join-Path $projectRoot '.venv\Scripts\python.exe'
+}
+
+if (-not (Test-Path $pythonPath)) {
+    throw 'Python virtual environment not found.'
+}
+
+if (-not $flutterCommand) {
+    throw 'Flutter was not found on PATH.'
+}
+$flutterPath = $flutterCommand.Source
+
+$ollamaCommand = Get-Command ollama -ErrorAction SilentlyContinue
 try {
     Invoke-RestMethod -Uri 'http://127.0.0.1:11434/api/tags' -TimeoutSec 2 | Out-Null
 } catch {
@@ -26,10 +39,10 @@ Start-Process -FilePath $pythonPath `
 
 Start-Sleep -Seconds 2
 
-Start-Process -FilePath $ngrokPath `
-    -ArgumentList 'http', '8000', '--url', $demoDomain `
-    -WindowStyle Hidden
-
-Write-Host "Demo started: $demoDomain" -ForegroundColor Magenta
+Write-Host 'Local backend started at http://127.0.0.1:8000' -ForegroundColor Green
 Write-Host 'Ollama summaries enabled with phi3:latest.' -ForegroundColor Green
-Write-Host 'Keep this laptop connected to the phone hotspot and keep ngrok running.'
+Write-Host 'Starting Flutter in offline/local mode. Press q to stop Flutter.'
+
+& $flutterPath run -d web-server `
+    --web-hostname 127.0.0.1 `
+    --dart-define=API_BASE_URL=http://127.0.0.1:8000/api

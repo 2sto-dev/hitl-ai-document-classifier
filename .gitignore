@@ -31,10 +31,10 @@ Thumbs.db
 
 # Flutter/Dart
 .dart_tool/
+**/android/.kotlin/
 .flutter-plugins
 .flutter-plugins-dependencies
 .packages
 build/
 coverage/
 *.iml
-
