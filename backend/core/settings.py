@@ -26,8 +26,12 @@ SECRET_KEY = 'django-insecure-9k)0&7svtxc(@nosby%(%+6w^*fgg4v7=q#zkr=6cyurkk1gnb
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
-
+ALLOWED_HOSTS = [
+    "hitl.airweb.ro",
+    "135.125.182.221",
+    "127.0.0.1",
+    "localhost",
+]
 
 # Application definition
 
@@ -143,19 +147,8 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
-STATIC_URL = 'static/'
-
+STATIC_URL = "/static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
-# Allow Flutter web development server to access the API
-CORS_ALLOW_ALL_ORIGINS = True
-ALLOWED_HOSTS = [
-    '127.0.0.1',
-    'localhost',
-    '10.0.2.2',
-    '172.20.254.104',
-    '.ngrok-free.app',
-    '.ngrok-free.dev',
-    '.ngrok.io',
-]

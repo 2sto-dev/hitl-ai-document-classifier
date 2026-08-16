@@ -38,3 +38,9 @@ Thumbs.db
 build/
 coverage/
 *.iml
+
+# Editor backup files
+*~
+
+# Django generated static files
+backend/staticfiles/
