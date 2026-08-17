@@ -28,10 +28,17 @@ DEBUG = True
 
 ALLOWED_HOSTS = [
     "hitl.airweb.ro",
-    "135.125.182.221",
-    "127.0.0.1",
+    "10.10.0.9",
     "localhost",
+    "127.0.0.1",
 ]
+
+CSRF_TRUSTED_ORIGINS = [
+    "https://hitl.airweb.ro",
+]
+
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+USE_X_FORWARDED_HOST = True
 
 # Application definition
 
@@ -51,6 +58,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
