@@ -2,11 +2,30 @@ from django.test import SimpleTestCase
 from unittest.mock import Mock, patch
 
 from .classifier import needs_human_review
-from .pdf_extractor import preprocess_text
+from .pdf_extractor import OCRUnavailableError, extract_text, preprocess_text
 from .services import process_document
 
 
 class DocumentProcessingTests(SimpleTestCase):
+
+    @patch("ai_engine.pdf_extractor._run_ocr", return_value="Scanned invoice total 1250 EUR")
+    @patch("ai_engine.pdf_extractor._needs_ocr", return_value=True)
+    @patch("ai_engine.pdf_extractor._extract_with_fitz", return_value="")
+    def test_scanned_pdf_uses_ocr(self, _fitz, _needs_ocr, run_ocr):
+        text = extract_text("scanned.pdf")
+
+        self.assertEqual(text, "Scanned invoice total 1250 EUR")
+        run_ocr.assert_called_once_with("scanned.pdf")
+
+    @patch(
+        "ai_engine.pdf_extractor._run_ocr",
+        side_effect=OCRUnavailableError("OCR is unavailable"),
+    )
+    @patch("ai_engine.pdf_extractor._needs_ocr", return_value=True)
+    @patch("ai_engine.pdf_extractor._extract_with_fitz", return_value="")
+    def test_scanned_pdf_reports_missing_ocr(self, _fitz, _needs_ocr, _run_ocr):
+        with self.assertRaisesMessage(OCRUnavailableError, "OCR is unavailable"):
+            extract_text("scanned.pdf")
 
     def test_preprocessing_normalizes_text_and_can_mask_pii(self):
         text = "Invoice\tfor  employee@example.com\n\n\nPhone: 555-123-4567"

@@ -286,7 +286,7 @@ ${document.extractedText}
     );
   }
 
-  Widget _buildDocumentPreview({bool compact = false}) {
+  Widget _buildDocumentPreview() {
     if (_selectedDocument == null) {
       return Center(
         child: Column(
@@ -356,7 +356,7 @@ ${document.extractedText}
           ],
         ),
         const SizedBox(height: 24),
-        _buildAnalysisSection(document, compact: compact),
+        _buildAnalysisSection(document),
       ],
     );
   }
@@ -380,9 +380,10 @@ ${document.extractedText}
             ),
           ),
           const SizedBox(height: 12),
-          Row(
-            children: [
-              Tooltip(
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final stackControls = constraints.maxWidth < 620;
+              final attachButton = Tooltip(
                 message: 'Attach PDF',
                 child: IconButton.filledTonal(
                   onPressed: (_isUploading || _isAnalyzing)
@@ -396,31 +397,27 @@ ${document.extractedText}
                         )
                       : const Icon(Icons.attach_file),
                 ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: TextField(
-                  controller: _promptController,
-                  style: const TextStyle(color: Colors.white),
-                  minLines: 1,
-                  maxLines: 3,
-                  decoration: const InputDecoration(
-                    hintText:
-                        'Attach a PDF, then ask AI what to extract, summarize, or classify...',
-                    hintStyle: TextStyle(color: Colors.white54),
-                    filled: true,
-                    fillColor: Color(0xFF0B2230),
-                    border: OutlineInputBorder(borderSide: BorderSide.none),
-                  ),
-                  onSubmitted: (_) {
-                    if (!_isAnalyzing) {
-                      _sendAiPrompt();
-                    }
-                  },
+              );
+              final promptField = TextField(
+                controller: _promptController,
+                style: const TextStyle(color: Colors.white),
+                minLines: 1,
+                maxLines: 3,
+                decoration: const InputDecoration(
+                  hintText:
+                      'Attach a PDF, then ask AI what to extract, summarize, or classify...',
+                  hintStyle: TextStyle(color: Colors.white54),
+                  filled: true,
+                  fillColor: Color(0xFF0B2230),
+                  border: OutlineInputBorder(borderSide: BorderSide.none),
                 ),
-              ),
-              const SizedBox(width: 10),
-              DecoratedBox(
+                onSubmitted: (_) {
+                  if (!_isAnalyzing) {
+                    _sendAiPrompt();
+                  }
+                },
+              );
+              final sendButton = DecoratedBox(
                 decoration: BoxDecoration(
                   gradient: _isAnalyzing ? null : AppColors.buttonGradient,
                   color: _isAnalyzing ? Colors.white12 : null,
@@ -466,8 +463,28 @@ ${document.extractedText}
                     style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
                   ),
                 ),
-              ),
-            ],
+              );
+
+              if (stackControls) {
+                return Column(
+                  children: [
+                    promptField,
+                    const SizedBox(height: 10),
+                    Row(children: [attachButton, const Spacer(), sendButton]),
+                  ],
+                );
+              }
+
+              return Row(
+                children: [
+                  attachButton,
+                  const SizedBox(width: 10),
+                  Expanded(child: promptField),
+                  const SizedBox(width: 10),
+                  sendButton,
+                ],
+              );
+            },
           ),
           const SizedBox(height: 10),
           Row(
@@ -513,10 +530,7 @@ ${document.extractedText}
     }
   }
 
-  Widget _buildAnalysisSection(
-    DocumentDetail document, {
-    bool compact = false,
-  }) {
+  Widget _buildAnalysisSection(DocumentDetail document) {
     final content = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -570,29 +584,14 @@ ${document.extractedText}
           ),
         ),
         const SizedBox(height: 8),
-        if (compact)
-          Text(
-            _aiSummary.isNotEmpty
-                ? _aiSummary
-                : (document.summary.isNotEmpty
-                      ? document.summary
-                      : document.extractedText),
-            style: const TextStyle(color: Colors.white60),
-          )
-        else
-          Expanded(
-            child: SingleChildScrollView(
-              child: Text(
-                // If AI produced a summary from the prompt, show it first
-                _aiSummary.isNotEmpty
-                    ? _aiSummary
-                    : (document.summary.isNotEmpty
-                          ? document.summary
-                          : document.extractedText),
-                style: const TextStyle(color: Colors.white60),
-              ),
-            ),
-          ),
+        Text(
+          _aiSummary.isNotEmpty
+              ? _aiSummary
+              : (document.summary.isNotEmpty
+                    ? document.summary
+                    : document.extractedText),
+          style: const TextStyle(color: Colors.white60, height: 1.5),
+        ),
         const SizedBox(height: 12),
         if (_aiDepartment.isNotEmpty) ...[
           _buildInfoRow('AI Predicted Department', _aiDepartment),
@@ -697,147 +696,171 @@ ${document.extractedText}
       ],
     );
 
-    return compact ? content : Expanded(child: content);
+    return content;
   }
 
   Widget _buildInfoRow(String label, String value) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(
-          width: 160,
-          child: Text(label, style: const TextStyle(color: Colors.white70)),
-        ),
-        Expanded(
-          child: Text(value, style: const TextStyle(color: Colors.white)),
-        ),
-      ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 430) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label, style: const TextStyle(color: Colors.white70)),
+              const SizedBox(height: 3),
+              Text(value, style: const TextStyle(color: Colors.white)),
+            ],
+          );
+        }
+
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              width: 160,
+              child: Text(label, style: const TextStyle(color: Colors.white70)),
+            ),
+            Expanded(
+              child: Text(value, style: const TextStyle(color: Colors.white)),
+            ),
+          ],
+        );
+      },
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final isMobile = MediaQuery.sizeOf(context).width < 700;
     return Scaffold(
-      body: Padding(
-        padding: EdgeInsets.all(isMobile ? 16 : 24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'AI Review Workspace',
-              style: TextStyle(
-                fontSize: 32,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-            ),
-            const SizedBox(height: 16),
-            _buildPromptPanel(),
-            const SizedBox(height: 16),
-            Expanded(
-              child: FutureBuilder<List<ReviewQueueDocument>>(
-                future: _queueFuture,
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final isCompact = constraints.maxWidth < 900;
+          return Padding(
+            padding: EdgeInsets.all(isCompact ? 16 : 24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'AI Review Workspace',
+                  style: TextStyle(
+                    fontSize: isCompact ? 26 : 32,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                _buildPromptPanel(),
+                const SizedBox(height: 16),
+                Expanded(
+                  child: FutureBuilder<List<ReviewQueueDocument>>(
+                    future: _queueFuture,
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
 
-                  if (snapshot.hasError) {
-                    return Center(
-                      child: Text(
-                        'Error loading queue: ${snapshot.error}',
-                        style: const TextStyle(color: Colors.red),
-                      ),
-                    );
-                  }
+                      if (snapshot.hasError) {
+                        return Center(
+                          child: Text(
+                            'Error loading queue: ${snapshot.error}',
+                            style: const TextStyle(color: Colors.red),
+                          ),
+                        );
+                      }
 
-                  final queue = snapshot.data ?? [];
-                  if (isMobile) {
-                    return SingleChildScrollView(
-                      child: Column(
+                      final queue = snapshot.data ?? [];
+                      if (isCompact) {
+                        return SingleChildScrollView(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (queue.isNotEmpty) ...[
+                                const Text(
+                                  'Review Queue',
+                                  style: TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: 10),
+                                ...queue.take(4).map(_buildQueueItem),
+                                const SizedBox(height: 16),
+                              ],
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(18),
+                                decoration: BoxDecoration(
+                                  color: AppColors.card,
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: _buildDocumentPreview(),
+                              ),
+                              const SizedBox(height: 24),
+                            ],
+                          ),
+                        );
+                      }
+                      return Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          if (queue.isNotEmpty) ...[
-                            const Text(
-                              'Review Queue',
-                              style: TextStyle(
-                                color: Colors.white70,
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
+                          Flexible(
+                            flex: 35,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Review Queue',
+                                  style: TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                Expanded(
+                                  child: queue.isEmpty
+                                      ? const Center(
+                                          child: Text(
+                                            'No documents pending review',
+                                            style: TextStyle(
+                                              color: Colors.white70,
+                                            ),
+                                          ),
+                                        )
+                                      : ListView.builder(
+                                          itemCount: queue.length,
+                                          itemBuilder: (context, index) =>
+                                              _buildQueueItem(queue[index]),
+                                        ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 24),
+                          Flexible(
+                            flex: 65,
+                            child: Container(
+                              clipBehavior: Clip.antiAlias,
+                              padding: const EdgeInsets.all(20),
+                              decoration: BoxDecoration(
+                                color: AppColors.card,
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: SingleChildScrollView(
+                                child: _buildDocumentPreview(),
                               ),
                             ),
-                            const SizedBox(height: 10),
-                            ...queue.take(4).map(_buildQueueItem),
-                            const SizedBox(height: 16),
-                          ],
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.all(18),
-                            decoration: BoxDecoration(
-                              color: AppColors.card,
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: _buildDocumentPreview(compact: true),
                           ),
-                          const SizedBox(height: 24),
                         ],
-                      ),
-                    );
-                  }
-                  return Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Flexible(
-                        flex: 35,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Review Queue',
-                              style: TextStyle(
-                                color: Colors.white70,
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            Expanded(
-                              child: queue.isEmpty
-                                  ? const Center(
-                                      child: Text(
-                                        'No documents pending review',
-                                        style: TextStyle(color: Colors.white70),
-                                      ),
-                                    )
-                                  : ListView.builder(
-                                      itemCount: queue.length,
-                                      itemBuilder: (context, index) =>
-                                          _buildQueueItem(queue[index]),
-                                    ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 24),
-                      Flexible(
-                        flex: 65,
-                        child: Container(
-                          padding: const EdgeInsets.all(20),
-                          decoration: BoxDecoration(
-                            color: AppColors.card,
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: _buildDocumentPreview(),
-                        ),
-                      ),
-                    ],
-                  );
-                },
-              ),
+                      );
+                    },
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }

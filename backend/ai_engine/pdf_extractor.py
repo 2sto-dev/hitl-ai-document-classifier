@@ -2,11 +2,17 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
 import unicodedata
+from importlib.util import find_spec
 from pathlib import Path
 
 import fitz
+
+
+class OCRUnavailableError(RuntimeError):
+    """Raised when a scanned PDF needs OCR but no OCR engine is available."""
 
 
 EMAIL_RE = re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b")
@@ -151,22 +157,30 @@ def _needs_ocr(pdf_path, text):
 
 
 def _run_ocr(pdf_path):
+    ocrmypdf_executable = shutil.which("ocrmypdf")
+    if ocrmypdf_executable:
+        command_prefix = [ocrmypdf_executable]
+    elif find_spec("ocrmypdf") is not None:
+        # On Windows, the virtual environment's Scripts directory is not
+        # always on PATH, so use the same interpreter that runs Django.
+        command_prefix = [sys.executable, "-m", "ocrmypdf"]
+    else:
+        raise OCRUnavailableError(
+            "This PDF contains no readable text and requires OCR, but "
+            "OCRmyPDF is not installed. Install backend/requirements.txt "
+            "and ensure Tesseract OCR is installed and available."
+        )
 
-    if shutil.which("ocrmypdf") is None:
-        return None
-
-    temp_dir = tempfile.mkdtemp(prefix="ocr_", dir=str(Path(__file__).resolve().parent))
+    temp_dir = tempfile.mkdtemp(prefix="hitl_ocr_")
     output_pdf = Path(temp_dir) / "ocr_output.pdf"
     sidecar = Path(temp_dir) / "ocr_output.txt"
 
     try:
-        command = [
-            "ocrmypdf",
+        command = command_prefix + [
             "--deskew",
             "--force-ocr",
             "--output-type",
             "pdf",
-            "--skip-text",
             "--sidecar",
             str(sidecar),
             str(pdf_path),
@@ -178,6 +192,7 @@ def _run_ocr(pdf_path):
             capture_output=True,
             text=True,
             check=False,
+            timeout=300,
         )
 
         if completed.returncode != 0:
@@ -201,12 +216,18 @@ def extract_text(pdf_path):
         return cleaned_text
 
     try:
-        ocr_text = _run_ocr(pdf_path)
+        ocr_text = clean_text(_run_ocr(pdf_path))
+    except Exception:
+        # Preserve usable embedded text in partially scanned PDFs. For a fully
+        # scanned PDF, expose the OCR error instead of feeding empty text into
+        # classification and the LLM.
+        if cleaned_text:
+            return cleaned_text
+        raise
 
-        if ocr_text:
-            return clean_text(ocr_text)
+    if ocr_text:
+        return ocr_text
+    if cleaned_text:
+        return cleaned_text
 
-    except Exception as exc:
-        print(f"OCR fallback failed for {pdf_path}: {exc}")
-
-    return cleaned_text
+    raise RuntimeError("OCR completed but extracted no readable text from the PDF.")
