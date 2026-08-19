@@ -23,9 +23,30 @@ class DocumentProcessingTests(SimpleTestCase):
     )
     @patch("ai_engine.pdf_extractor._needs_ocr", return_value=True)
     @patch("ai_engine.pdf_extractor._extract_with_fitz", return_value="")
-    def test_scanned_pdf_reports_missing_ocr(self, _fitz, _needs_ocr, _run_ocr):
-        with self.assertRaisesMessage(OCRUnavailableError, "OCR is unavailable"):
-            extract_text("scanned.pdf")
+    def test_scanned_pdf_falls_back_when_ocr_is_missing(
+        self,
+        _fitz,
+        _needs_ocr,
+        _run_ocr,
+    ):
+        self.assertEqual(extract_text("scanned.pdf"), "")
+
+    @patch(
+        "ai_engine.pdf_extractor._run_ocr",
+        side_effect=RuntimeError("OCR failed"),
+    )
+    @patch("ai_engine.pdf_extractor._needs_ocr", return_value=True)
+    @patch(
+        "ai_engine.pdf_extractor._extract_with_fitz",
+        return_value="Useful native text",
+    )
+    def test_mixed_pdf_keeps_native_text_when_ocr_fails(
+        self,
+        _fitz,
+        _needs_ocr,
+        _run_ocr,
+    ):
+        self.assertEqual(extract_text("mixed.pdf"), "Useful native text")
 
     def test_preprocessing_normalizes_text_and_can_mask_pii(self):
         text = "Invoice\tfor  employee@example.com\n\n\nPhone: 555-123-4567"

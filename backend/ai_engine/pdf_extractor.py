@@ -109,51 +109,50 @@ def _extract_with_fitz(pdf_path):
 
 
 def _needs_ocr(pdf_path, text):
-
     cleaned_text = clean_text(text)
-    word_count = len(cleaned_text.split())
+    total_words = len(cleaned_text.split())
 
-    if not cleaned_text or word_count < 20:
+    if total_words < 20:
         return True
 
     try:
         with fitz.open(pdf_path) as doc:
-            if len(doc) == 0:
+            page_count = len(doc)
+
+            if page_count == 0:
                 return False
 
-            text_ratio_scores = []
-            image_page_count = 0
+            page_word_counts = []
 
             for page in doc:
                 page_text = clean_text(page.get_text("text"))
-                page_word_count = len(page_text.split())
-                page_image_count = len(page.get_images(full=True))
+                page_word_counts.append(len(page_text.split()))
 
-                if page_image_count > 0:
-                    image_page_count += 1
+            average_words = sum(page_word_counts) / page_count
+            empty_pages = sum(words == 0 for words in page_word_counts)
+            low_text_pages = sum(words < 10 for words in page_word_counts)
 
-                if page_word_count == 0:
-                    text_ratio_scores.append(0.0)
-                else:
-                    text_ratio_scores.append(page_word_count)
+            empty_ratio = empty_pages / page_count
+            low_text_ratio = low_text_pages / page_count
 
-            if image_page_count > len(doc) // 2:
-                return True
+            # Logos and decorative images must not trigger OCR when the PDF
+            # already contains enough digital text.
+            if (
+                total_words >= 80
+                and average_words >= 20
+                and empty_ratio < 0.30
+            ):
+                return False
 
-            if len(text_ratio_scores) > 0:
-                average_page_text = sum(text_ratio_scores) / len(text_ratio_scores)
-                low_text_pages = sum(1 for score in text_ratio_scores if score < 10)
+            return (
+                total_words < 40
+                or empty_ratio >= 0.30
+                or (average_words < 15 and low_text_ratio > 0.50)
+            )
 
-                if average_page_text < 15 and low_text_pages / len(text_ratio_scores) > 0.5:
-                    return True
-
-            if word_count < 40:
-                return True
-
-    except Exception:
-        return False
-
-    return False
+    except Exception as exc:
+        print(f"OCR detection failed for {pdf_path}: {exc}")
+        return total_words < 20
 
 
 def _run_ocr(pdf_path):
@@ -173,16 +172,20 @@ def _run_ocr(pdf_path):
 
     temp_dir = tempfile.mkdtemp(prefix="hitl_ocr_")
     output_pdf = Path(temp_dir) / "ocr_output.pdf"
-    sidecar = Path(temp_dir) / "ocr_output.txt"
 
     try:
         command = command_prefix + [
             "--deskew",
-            "--force-ocr",
+            "--rotate-pages",
+            "--skip-text",
+            "--language",
+            os.environ.get("OCR_LANGUAGES", "ron+eng"),
+            "--jobs",
+            "2",
+            "--optimize",
+            "0",
             "--output-type",
             "pdf",
-            "--sidecar",
-            str(sidecar),
             str(pdf_path),
             str(output_pdf),
         ]
@@ -192,42 +195,41 @@ def _run_ocr(pdf_path):
             capture_output=True,
             text=True,
             check=False,
-            timeout=300,
+            timeout=180,
         )
 
         if completed.returncode != 0:
-            raise RuntimeError(completed.stderr.strip() or completed.stdout.strip())
+            error = completed.stderr.strip() or completed.stdout.strip()
+            raise RuntimeError(error)
 
-        if sidecar.exists():
-            return sidecar.read_text(encoding="utf-8", errors="ignore")
+        if not output_pdf.exists():
+            raise RuntimeError("OCRmyPDF did not create the output PDF")
 
-        return None
+        # The output contains existing digital text plus text added to
+        # image-only pages by OCRmyPDF.
+        return _extract_with_fitz(output_pdf)
 
     finally:
         shutil.rmtree(temp_dir, ignore_errors=True)
 
 
 def extract_text(pdf_path):
+    native_text = _extract_with_fitz(pdf_path)
+    cleaned_native_text = clean_text(native_text)
 
-    text = _extract_with_fitz(pdf_path)
-    cleaned_text = clean_text(text)
-
-    if not _needs_ocr(pdf_path, cleaned_text):
-        return cleaned_text
+    if not _needs_ocr(pdf_path, cleaned_native_text):
+        return cleaned_native_text
 
     try:
-        ocr_text = clean_text(_run_ocr(pdf_path))
-    except Exception:
-        # Preserve usable embedded text in partially scanned PDFs. For a fully
-        # scanned PDF, expose the OCR error instead of feeding empty text into
-        # classification and the LLM.
-        if cleaned_text:
-            return cleaned_text
-        raise
+        ocr_text = _run_ocr(pdf_path)
 
-    if ocr_text:
-        return ocr_text
-    if cleaned_text:
-        return cleaned_text
+        if ocr_text:
+            return clean_text(ocr_text)
 
-    raise RuntimeError("OCR completed but extracted no readable text from the PDF.")
+    except subprocess.TimeoutExpired:
+        print(f"OCR timed out for {pdf_path}")
+
+    except Exception as exc:
+        print(f"OCR fallback failed for {pdf_path}: {exc}")
+
+    return cleaned_native_text
