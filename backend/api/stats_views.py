@@ -18,36 +18,38 @@ class StatisticsView(
         request
     ):
 
+        documents = Document.objects.filter(owner=request.user)
+
         total_documents = (
-            Document.objects.count()
+            documents.count()
         )
 
         approved = (
-            Document.objects.filter(
+            documents.filter(
                 status="approved"
             ).count()
         )
 
         review_required = (
-            Document.objects.filter(
+            documents.filter(
                 status="review"
             ).count()
         )
 
         rejected = (
-            Document.objects.filter(
+            documents.filter(
                 status="rejected"
             ).count()
         )
 
         pending = (
-            Document.objects.filter(
+            documents.filter(
                 status="pending"
             ).count()
         )
 
         average_confidence = (
-            Document.objects.aggregate(
+            documents.aggregate(
                 Avg(
                     "confidence_score"
                 )
@@ -58,7 +60,7 @@ class StatisticsView(
         )
 
         average_margin = (
-            Document.objects.aggregate(
+            documents.aggregate(
                 Avg(
                     "confidence_margin"
                 )
@@ -68,34 +70,34 @@ class StatisticsView(
             or 0
         )
 
-        high_confidence_docs = Document.objects.filter(
+        high_confidence_docs = documents.filter(
             confidence_score__gte=95.0
         ).count()
 
-        low_margin_docs = Document.objects.filter(
+        low_margin_docs = documents.filter(
             confidence_margin__lt=0.30
         ).count()
 
         human_corrected = (
-            Document.objects.filter(
+            documents.filter(
                 human_corrected=True
             ).count()
         )
 
         reviewed_documents = (
-            Document.objects.exclude(
+            documents.exclude(
                 reviewed_at=None
             ).count()
         )
 
         processed_documents = (
-            Document.objects.exclude(
+            documents.exclude(
                 status="pending"
             ).count()
         )
 
         auto_approved_documents = (
-            Document.objects.filter(
+            documents.filter(
                 status="approved",
                 reviewed_at=None
             ).count()
@@ -194,6 +196,8 @@ class DepartmentStatisticsView(
 
         data = {}
 
+        documents = Document.objects.filter(owner=request.user)
+
         departments = [
 
             "HR",
@@ -210,7 +214,7 @@ class DepartmentStatisticsView(
             data[
                 department
             ] = (
-                Document.objects.filter(
+                documents.filter(
                     final_class=department
                 ).count()
             )

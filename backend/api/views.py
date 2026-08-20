@@ -1,4 +1,5 @@
 from django.utils import timezone
+from django.shortcuts import get_object_or_404
 
 from rest_framework import generics
 from rest_framework import status
@@ -41,14 +42,14 @@ class DocumentListView(
 
     permission_classes = [IsAuthenticated]
 
-    queryset = (
-        Document.objects.all()
-        .order_by("-uploaded_at")
-    )
-
     serializer_class = (
         DocumentSerializer
     )
+
+    def get_queryset(self):
+        return Document.objects.filter(
+            owner=self.request.user
+        ).order_by("-uploaded_at")
 
 
 class DocumentDetailView(
@@ -57,15 +58,14 @@ class DocumentDetailView(
 
     permission_classes = [IsAuthenticated]
 
-    queryset = (
-        Document.objects.all()
-    )
-
     serializer_class = (
         DocumentSerializer
     )
 
     lookup_field = "id"
+
+    def get_queryset(self):
+        return Document.objects.filter(owner=self.request.user)
 
 
 class ReviewQueueView(
@@ -78,12 +78,11 @@ class ReviewQueueView(
         ReviewQueueSerializer
     )
 
-    queryset = (
-        Document.objects.filter(
+    def get_queryset(self):
+        return Document.objects.filter(
+            owner=self.request.user,
             human_review_required=True
-        )
-        .order_by("-uploaded_at")
-    )
+        ).order_by("-uploaded_at")
 
 
 class ReviewDocumentView(
@@ -98,8 +97,10 @@ class ReviewDocumentView(
         id
     ):
 
-        document = Document.objects.get(
-            id=id
+        document = get_object_or_404(
+            Document,
+            id=id,
+            owner=request.user
         )
 
         serializer = ReviewSerializer(
@@ -204,6 +205,8 @@ class UploadDocumentView(
         )
 
         document = Document.objects.create(
+
+            owner=request.user,
 
             filename=serializer.validated_data[
                 "filename"

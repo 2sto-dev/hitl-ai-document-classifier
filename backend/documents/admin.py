@@ -54,6 +54,7 @@ class DocumentAdmin(admin.ModelAdmin):
 
     list_display = (
         "filename",
+        "owner",
         "predicted_class",
         "final_class",
         "confidence_score",

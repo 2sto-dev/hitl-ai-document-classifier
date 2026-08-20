@@ -1,9 +1,18 @@
 import uuid
 
+from django.conf import settings
 from django.db import models
 
 
 class Document(models.Model):
+
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="documents",
+        null=True,
+        blank=True
+    )
 
     DECISION_ROUTE_CHOICES = [
         ("auto_approved", "Auto-approved"),

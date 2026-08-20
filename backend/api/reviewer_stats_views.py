@@ -23,7 +23,7 @@ class ReviewerStatisticsView(
     ):
 
         reviewers = (
-            Document.objects
+            Document.objects.filter(owner=request.user)
             .exclude(reviewed_by="")
             .values("reviewed_by")
             .annotate(
@@ -55,6 +55,7 @@ class ReviewerCorrectionView(
         reviewers = (
             Document.objects
             .filter(
+                owner=request.user,
                 human_corrected=True
             )
             .exclude(

@@ -69,6 +69,7 @@ class ApiTestCase(APITestCase):
 
     def create_document(self, **overrides):
         values = {
+            "owner": self.user,
             "filename": "sample.pdf",
             "uploaded_file": "documents/sample.pdf",
             "predicted_class": "HR",
@@ -148,6 +149,41 @@ class ApiPermissionTests(ApiTestCase):
         self.assertEqual(analyze.status_code, 401)
 
 
+class UserDocumentIsolationTests(ApiTestCase):
+
+    def setUp(self):
+        super().setUp()
+        self.other_user = User.objects.create_user(
+            username="other_reviewer",
+            password=self.password
+        )
+        self.own_document = self.create_document()
+        self.other_document = self.create_document(owner=self.other_user)
+        self.authenticate()
+
+    def test_history_queue_and_dashboard_only_include_own_documents(self):
+        history = self.client.get(reverse("document-list"))
+        queue = self.client.get(reverse("review-queue"))
+        stats = self.client.get(reverse("stats"))
+
+        self.assertEqual([item["id"] for item in history.data], [str(self.own_document.id)])
+        self.assertEqual([item["id"] for item in queue.data], [str(self.own_document.id)])
+        self.assertEqual(stats.data["total_documents"], 1)
+
+    def test_user_cannot_view_or_review_another_users_document(self):
+        detail = self.client.get(
+            reverse("document-detail", kwargs={"id": self.other_document.id})
+        )
+        review = self.client.post(
+            reverse("document-review", kwargs={"id": self.other_document.id}),
+            {"action": "approve"},
+            format="json"
+        )
+
+        self.assertEqual(detail.status_code, 404)
+        self.assertEqual(review.status_code, 404)
+
+
 class UploadApiTests(ApiTestCase):
 
     @override_settings(MEDIA_ROOT=tempfile.gettempdir())
@@ -169,6 +205,7 @@ class UploadApiTests(ApiTestCase):
         self.assertEqual(response.status_code, 201)
         document = Document.objects.get(id=response.data["id"])
         self.assertEqual(document.filename, "report.pdf")
+        self.assertEqual(document.owner, self.user)
         process_document.assert_called_once_with(document)
 
 

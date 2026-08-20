@@ -29,7 +29,9 @@ class AccuracyStatisticsView(
     ):
 
         reviewed_docs = (
-            Document.objects.exclude(
+            Document.objects.filter(
+                owner=request.user
+            ).exclude(
                 final_class=""
             )
         )
@@ -92,6 +94,8 @@ class ConfusionMatrixView(
 
         matrix = {}
 
+        documents = Document.objects.filter(owner=request.user)
+
         for predicted in DEPARTMENTS:
 
             matrix[predicted] = {}
@@ -99,7 +103,7 @@ class ConfusionMatrixView(
             for actual in DEPARTMENTS:
 
                 count = (
-                    Document.objects.filter(
+                    documents.filter(
                         predicted_class=predicted,
                         final_class=actual
                     ).count()
