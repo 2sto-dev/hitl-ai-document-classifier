@@ -5,11 +5,31 @@ import '../../widgets/status_distribution_chart.dart';
 import '../../widgets/department_stats_chart.dart';
 import '../../widgets/confusion_matrix_chart.dart';
 import '../../services/api_service.dart';
+import '../../services/auth_service.dart';
 import '../../models/stats_model.dart';
 import '../../models/accuracy_stats_model.dart';
 import '../../models/department_stats_model.dart';
 import '../../models/confusion_matrix_model.dart';
 import '../../theme/app_theme.dart';
+
+String getGreeting(String title) {
+  final hour = DateTime.now().hour;
+  final username = title.split('_').first;
+  final displayName = username.isEmpty
+      ? username
+      : '${username[0].toUpperCase()}${username.substring(1)}';
+  late final String greeting;
+
+  if (hour >= 5 && hour < 12) {
+    greeting = 'Good morning';
+  } else if (hour >= 12 && hour < 18) {
+    greeting = 'Good afternoon';
+  } else {
+    greeting = 'Good evening';
+  }
+
+  return '$greeting, $displayName! 👋';
+}
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -49,9 +69,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                "Good morning, Researcher 👋",
-                style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
+              Text(
+                getGreeting(AuthService.username ?? ''),
+                style: const TextStyle(
+                  fontSize: 32,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               const SizedBox(height: 12),
               const Text(
