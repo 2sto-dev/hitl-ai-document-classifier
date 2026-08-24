@@ -182,7 +182,7 @@ ${document.extractedText}
         // follow-up question.
         if (promptText.isEmpty) {
           setState(() {
-            _aiDepartment = detail.suggestedDepartment;
+            _aiDepartment = detail.predictedClass;
             _aiSummary = detail.summary;
             _aiKeywords = detail.keywords;
           });
@@ -194,7 +194,7 @@ ${document.extractedText}
       final result = await ApiService.sendAiPrompt(combined);
       if (!mounted) return;
       setState(() {
-        _aiDepartment = (result['department'] ?? '').toString();
+        _aiDepartment = document!.predictedClass;
         _aiSummary = (result['summary'] ?? '').toString();
         final kw = result['keywords'];
         if (kw is List) {
@@ -548,13 +548,6 @@ ${document.extractedText}
           'Confidence',
           '${document.confidenceScore.toStringAsFixed(1)}%',
         ),
-        const SizedBox(height: 8),
-        _buildInfoRow(
-          'Suggested Department',
-          document.suggestedDepartment.isNotEmpty
-              ? document.suggestedDepartment
-              : 'N/A',
-        ),
         const SizedBox(height: 16),
         Text(
           'Keywords',
@@ -594,7 +587,7 @@ ${document.extractedText}
         ),
         const SizedBox(height: 12),
         if (_aiDepartment.isNotEmpty) ...[
-          _buildInfoRow('AI Predicted Department', _aiDepartment),
+          _buildInfoRow('AI Predicted Department', document.predictedClass),
           const SizedBox(height: 8),
           _buildInfoRow('AI Keywords', _aiKeywords.join(', ')),
           const SizedBox(height: 12),
